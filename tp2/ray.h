@@ -20,5 +20,5 @@ struct Ray {
 };
 
 void DebugRay(Ray r) {
-	printf("Ray : pos = [%f, %f, %f] , direction = [%f, %f, %f], color = [%f, %f, %f]", r.pos.x, r.pos.y, r.pos.z, r.direction.x, r.direction.y, r.direction.z, r.color.x, r.color.y, r.color.z);
+	printf("Ray : pos = [%f, %f, %f] , direction = [%f, %f, %f], color = [%f, %f, %f]\n", r.pos.x, r.pos.y, r.pos.z, r.direction.x, r.direction.y, r.direction.z, r.color.x, r.color.y, r.color.z);
 }

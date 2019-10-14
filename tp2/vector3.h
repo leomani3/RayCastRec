@@ -51,6 +51,12 @@ Vec3<T> operator+(const Vec3<T>& a, const Vec3<T>& b) {
 	return Vec3<T>{ a.x + b.x, a.y + b.y, a.z + b.z };
 };
 
+//Operateur de division par un scalair
+template<typename T>
+Vec3<T> operator/(const Vec3<T>& a, float f) {
+	return Vec3<T>{ a.x / f, a.y / f, a.z / f};
+};
+
 
 //Calcul de la nomre d'un vecteur
 template<typename T>

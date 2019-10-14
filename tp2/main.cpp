@@ -27,7 +27,7 @@ std::optional<Intersection> intersect(Ray r, Sphere sphere) {
 	float b = 2 * (dot(r.pos, normalizedDir) - dot(sphere.center, normalizedDir));
 	float c = dot(r.pos, r.pos) + dot(sphere.center, sphere.center) - 2 * dot(sphere.center, r.pos) - (sphere.rayon * sphere.rayon);
 
-	float delta = (b * b) - (4 * a * c);
+	float delta = (b * b) - 4 * a * c;
 
 	if (delta > 0) {
 		float t = (-b - sqrt(delta)) / (2 * a);
@@ -35,6 +35,7 @@ std::optional<Intersection> intersect(Ray r, Sphere sphere) {
 			res.t = t;
 			res.impactWorldPoint = r.pos + (normalizedDir * t);
 			res.objectColor = sphere.color;
+			return res;
 		}
 		else if (t < 0) {
 			t = (-b + sqrt(delta)) / (2 * a);
@@ -42,6 +43,7 @@ std::optional<Intersection> intersect(Ray r, Sphere sphere) {
 				res.t = t;
 				res.impactWorldPoint = r.pos + (normalizedDir * t);
 				res.objectColor = sphere.color;
+				return res;
 			}
 		}
 		else {
@@ -56,95 +58,72 @@ std::optional<Intersection> intersect(Ray r, Sphere sphere) {
 		res.t = -b - sqrt(delta) / (2 * a);
 		res.impactWorldPoint = r.pos + (normalizedDir * res.t);
 		res.objectColor = sphere.color;
+		return res;
 	}
-	return res;
+	return std::nullopt;
 }
 
 //test si le rayon intersect avec tous les objets de la scène et renvoie l'intersection la plus proche
 std::optional<Intersection> IntersectWithAllObjects(Ray ray, std::vector<Sphere> objects) {
 	std::optional<Intersection> intersection = std::nullopt;
+	for (int i = 0; i < objects.size(); i++) {
+		std::optional<Intersection> tmp = intersect(ray, objects[i]);
 
-	for (int i = 0; i < objects.size(); i++)
-	{
-		std::optional<Intersection> tmpIntersection = intersect(ray, objects[i]);
-		DebugIntersection(tmpIntersection.value());
-		if ((!intersection.has_value() && tmpIntersection.has_value()) || (intersection.has_value() && tmpIntersection.has_value() && tmpIntersection.value().t < intersection.value().t))
+		if ((tmp.has_value() && !intersection.has_value()) || (intersection.has_value() && tmp.has_value() && tmp.value().t < intersection.value().t))
 		{
-			intersection = tmpIntersection;
+			intersection = tmp;
 			intersection.value().objectIndex = i;
 		}
 	}
-	//DebugIntersection(intersection.value());
+
 	return intersection;
 }
 
 bool CheckIfObstacle(Ray ray, std::vector<Sphere> objects) {
 	std::optional<Intersection> intersection = IntersectWithAllObjects(ray, objects);
-
-	if (intersection.has_value() && intersection.value().t <= norm(ray.direction))
+	if (intersection.has_value() && intersection.value().t <= norm(ray.direction)) {
 		return true;
-	else
+	}
+	else {
 		return false;
+	}
+}
+
+Vec3<float> ComputeColor(std::optional<Intersection> intersection, std::vector<Sphere> objects, std::vector<Light> lights) {
+	Vec3<float> res = Vec3<float>{ 0, 0, 0};
+
+	for (int l = 0; l < lights.size(); l++) {
+		Vec3<float> impactToLight = lights[l].pos - intersection.value().impactWorldPoint;
+		Vec3<float> impactPoint = intersection.value().impactWorldPoint + normalise(impactToLight);
+		Ray rayToLight = { impactPoint, impactToLight };
+
+		if (CheckIfObstacle(rayToLight, objects)) { //dans l'ombre
+			res = res + Vec3<float>{ 0, 0, 0 };
+		}
+		else { //éclairé
+			Vec3<float> objectNormale = normalise(impactPoint - objects[intersection.value().objectIndex].center);
+			float lightImpactAngle = dot(objectNormale, normalise(impactToLight));
+			if (lightImpactAngle > 0) {
+				res = res + (intersection.value().objectColor * lights[l].color * lightImpactAngle / std::pow(norm(impactToLight), 2));
+			}
+		}
+	}
+
+	return res;
 }
 
 //Permet d'avancer dans le lancer de rayon. renvoie la couleur du rayon.
-Vec3<float> CastRay(Ray ray, int n, std::vector<Sphere> objects, std::vector<Light> lights) {
+Vec3<float> CastRay(Ray ray, std::vector<Sphere> objects, std::vector<Light> lights) {
+	Vec3<float> res;
 	//On test le rayon avec tous les objets de la scène et on retourne l'intersection la plus proche
 	std::optional<Intersection> intersection = IntersectWithAllObjects(ray, objects);
 
-	//Si le rayon a touché quelque chose
 	if (intersection.has_value())
 	{
-		//printf("intersect\n");
-		//calcul de la couleur de l'objet
-		float R = 0, G = 0, B = 0;
-		for (int l = 0; l < lights.size(); l++) // pour toutes les lumières
-		{
-			for (int lightPoint = 0; lightPoint < lightDef; lightPoint++) //pour chaque petit point de la lumière
-			{
-				std::uniform_real_distribution<float> randomX(-lights[l].width / 2.0f, lights[l].width / 2.f);
-				std::uniform_real_distribution<float> randomY(-lights[l].height / 2.0f, lights[l].height / 2.f);
-				std::uniform_real_distribution<float> randomZ(-lights[l].depth / 2.0f, lights[l].depth / 2.f);
-				Vec3<float> randomOffset = { randomX(generator), randomY(generator), randomZ(generator) };
-				Vec3<float> fromImpactToLight = (lights[l].pos + randomOffset) - intersection.value().impactWorldPoint;
-
-				Vec3<float> objectNormal = intersection.value().impactWorldPoint - objects[intersection.value().objectIndex].center;
-
-				Ray rayToLight = Ray{intersection.value().impactWorldPoint, fromImpactToLight};
-				float lightImpactAngle = dot(normalise(objectNormal), normalise(fromImpactToLight));
-
-				if(!CheckIfObstacle) {
-					R += intersection.value().objectColor.x * lights[l].color.x * lightImpactAngle * std::pow(norm(fromImpactToLight), 2);
-					G += intersection.value().objectColor.y * lights[l].color.y * lightImpactAngle * std::pow(norm(fromImpactToLight), 2);
-					B += intersection.value().objectColor.z * lights[l].color.z * lightImpactAngle * std::pow(norm(fromImpactToLight), 2);
-				}
-			}
-			R /= lightDef;
-			G /= lightDef;
-			B /= lightDef;
-		}
-
-		Vec3<float> color = {R, G, B};
-
-
-		//test de la fin de récursion
-
-		//TODO : Il faudra mettre quelque part là dedans le test pour voir si c'est un miroir Si c'est le cas, il faudra juste renvoyer la couleur du prochaine rayon sans l'additionner
-		if (n == 1)
-		{
-			//return ray.color;
-			return color;
-		}
-		//continue la récursion
-		else
-		{
-			return ray.color * CastRay(ray, n - 1, objects, lights);
-		}
+		return ComputeColor(intersection, objects, lights);
 	}
-	//Si le rayon n'a rien touché, renvoie une couleur réprésentant le vide (ici noir)
 	else {
-		//printf("pas intersect\n");
-		return Vec3<float>{ 0.0, 0.0, 0.0 };
+		return Vec3<float>{ 0, 0, 0 }; //le rayon n'a rien touché = néant
 	}
 }
 
@@ -166,7 +145,7 @@ int main()
 
 	Vec3<float> camera = { screenWidth / 2.0f, screenHeight / 2.0f, -5000000 };
 
-	/*Sphere fondGris(Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f, 15000}, 14000, Vec3<float>{1, 1, 1});
+	Sphere fondGris(Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f, 15000}, 14000, Vec3<float>{1, 1, 1});
 	objects.push_back(fondGris);
 	Sphere solVert(Vec3<float>{screenWidth / 2.0f, (float)screenHeight + 16000 - 250, screenWidth / 2.0f + 2600}, 16000 + 50, Vec3<float>{0.1, 0.8, 0.1});
 	objects.push_back(solVert);
@@ -175,123 +154,42 @@ int main()
 	Sphere gauche(Vec3<float>{-16000 + 300, (float)screenHeight / 2.0f, screenWidth / 2.0f + 3000}, 16000 + 50, Vec3<float>{0.1, 1, 1});
 	objects.push_back(gauche);
 	Sphere haut(Vec3<float>{screenWidth / 2.0f, -16000 + 300, screenWidth / 2.0f + 3000}, 16000 + 50, Vec3<float>{1, 0.1, 1});
-	objects.push_back(haut);*/
+	objects.push_back(haut);
 
-	Sphere sphereRouge(Vec3<float>{screenWidth / 2.0f - 100, screenHeight / 2.0f, 500}, 50, Vec3<float>{1, 0.05, 0.05});
-	objects.push_back(sphereRouge);
-	/*Sphere sphereVerte(Vec3<float>{screenWidth / 2.0f + 250, screenHeight / 2.0f - 200, 250}, 30, Vec3<float>{0.05, 1, 0.05});
-	objects.push_back(sphereVerte);*/
+	Sphere sphere1(Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f, 600}, 200, Vec3<float>{1, 0.05, 0.05});
+	objects.push_back(sphere1);
+	Sphere sphere2(Vec3<float>{screenWidth / 2.0f + 100, screenHeight / 2.0f, 200}, 50, Vec3<float>{0.05, 1, 0.05});
+	objects.push_back(sphere2);
 
-	/*Light light1{ Vec3<float>{screenWidth / 2.0f, 0, 600}, Vec3<float>{100000000, 100000000, 100000000}};
-	lights.push_back(light1);*/
-	Light light2{ Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f - 200, 0}, 50, 1, 50, Vec3<float>{50000000, 50000000, 50000000} };
-	lights.push_back(light2);
+	Light light{ Vec3<float>{screenWidth / 2.0f -300, screenHeight / 2.0f, -300}, 50, 1, 50, Vec3<float>{90000000, 90000000, 90000000} };
+	lights.push_back(light);
+	/*Light light2{ Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f, -1000}, 50, 1, 50, Vec3<float>{500000, 500000, 500000} };
+	lights.push_back(light2);*/
 
 
 
+	//Pour tous les pixels
 	for (int j = 0; j < screenHeight; j++)
 	{
 		int rayIndex = 0;
-		for (int i = 0; i < screenWidth; i+=3)
+		for (int i = 0; i < screenWidth * 3; i+=3)
 		{
 			Vec3<float> rayDir = Vec3<float>{ (float)rayIndex, (float)j, 0 } - camera;
-			//VecDebug(rayDir);
-			Ray ray = Ray{camera, rayDir };
+			Ray ray = Ray{ Vec3<float>{ (float)rayIndex, (float)j, 0 }, rayDir, Vec3<float>{1, 1, 1 } };
 
-			//DebugRay(ray);
-			//CastRay(ray, 1, objects, lights);
-			CastRay(Ray{ Vec3<float>{0, 0, 0}, Vec3<float>{0, 0, -1} }, 1, objects, lights);
+			Vec3<float> pixelColor = CastRay(ray, objects, lights);
+
+			pixelColor.x = clamp(0, 255, pixelColor.x);
+			pixelColor.y = clamp(0, 255, pixelColor.y);
+			pixelColor.z = clamp(0, 255, pixelColor.z);
+
+			ImgOut[j * screenWidth * 3 + i] = pixelColor.x;
+			ImgOut[j * screenWidth * 3 + i + 1] = pixelColor.y;
+			ImgOut[j * screenWidth * 3 + i + 2] = pixelColor.z;
 			
 			rayIndex++;
 		}
 	}
-
-/*#pragma omp parallel for
-	for (int j = 0; j < screenHeight; j++) {
-		int rayIndex = 0;
-		for (int i = 0; i < screenWidth * 3; i += 3) {
-			int indexCurrentObject;
-
-			//---------------------RAYCAST INITIAL-------------------------
-			Intersection initialIntersection = Intersection();
-			Vec3<float> perspective = Vec3<float>{ (float)rayIndex, (float)j, 0 } - camera;
-			perspective = normalise(perspective);
-			for (int k = 0; k < objects.size(); k++) {
-				Intersection tmp = intersect(Ray(Vec3<float>{(float)rayIndex, (float)j, 0}, perspective), objects[k]);
-				if ((!initialIntersection.t.has_value() && tmp.t.has_value()) || (tmp.t.has_value() && initialIntersection.t.has_value() && tmp.t.value() < initialIntersection.t.value())) {
-					initialIntersection.t = tmp.t.value();
-					initialIntersection.color = tmp.color;
-					indexCurrentObject = k;
-				}
-			}
-			//---------------------------------------------------------------
-
-
-			if (initialIntersection.t.has_value()) {
-				Vec3<float> currentPixel = camera + multiplyByScalar(perspective, initialIntersection.t.value());
-				Vec3<float> normale = currentPixel - objects[indexCurrentObject].center;
-				normale = normalise(normale);
-				currentPixel = currentPixel + multiplyByScalar(normale, 1.1);
-
-				int R = 0, G = 0, B = 0;
-				for (int l = 0; l < lights.size(); l++)
-				{
-					//Pour lightDef points de chaque lumière surfacique
-					for (int lightPoint = 0; lightPoint < lightDef; lightPoint++)
-					{
-						//-----------------RAYCAST ÉCLAIRAGE--------------------------------
-						std::uniform_real_distribution<float> randomX(-lights[l].width / 2.0f, lights[l].width / 2.f);
-						std::uniform_real_distribution<float> randomY(-lights[l].height / 2.0f, lights[l].height / 2.f);
-						std::uniform_real_distribution<float> randomZ(-lights[l].depth / 2.0f, lights[l].depth / 2.f);
-						Vec3<float> randomOffset = { randomX(generator), randomY(generator), randomZ(generator) };
-						Vec3<float> fromPixelToLight = (lights[l].pos + randomOffset) - currentPixel;
-
-						std::optional<float> obstacleBeforeLight;
-						for (int i = 0; i < objects.size(); i++) {
-							Intersection tmp = intersect(Ray{ currentPixel, fromPixelToLight }, objects[i]);
-							if (tmp.t.has_value() && tmp.t.value() <= norm(fromPixelToLight)) {
-								obstacleBeforeLight = tmp.t.value();
-							}
-						}
-						//-------------------------------------------------------------------
-
-						if (!obstacleBeforeLight.has_value()) {
-							Vec3<float> currentPixelNormaleNormalized = normalise(currentPixel - objects[indexCurrentObject].center);
-							Vec3<float> fromPixelToLightNormalized = normalise(fromPixelToLight);
-
-							float lightImpactAngle = dot(currentPixelNormaleNormalized, fromPixelToLightNormalized);
-							if (lightImpactAngle > 0)
-							{
-								R += initialIntersection.color.x * lights[l].color.x * lightImpactAngle / std::pow(norm(fromPixelToLight), 2);
-								G += initialIntersection.color.y * lights[l].color.y * lightImpactAngle / std::pow(norm(fromPixelToLight), 2);
-								B += initialIntersection.color.z * lights[l].color.z * lightImpactAngle / std::pow(norm(fromPixelToLight), 2);
-							}
-						}
-					}
-					R /= lightDef;
-					G /= lightDef;
-					B /= lightDef;
-				}
-				R = std::clamp(R, 0, 255);
-				G = std::clamp(G, 0, 255);
-				B = std::clamp(B, 0, 255);
-
-				ImgOut[j * screenWidth * 3 + i] = R;
-				ImgOut[j * screenWidth * 3 + i + 1] = G;
-				ImgOut[j * screenWidth * 3 + i + 2] = B;
-			}
-			else {
-				ImgOut[j * screenWidth * 3 + i] = 127;
-				ImgOut[j * screenWidth * 3 + i + 1] = 127;
-				ImgOut[j * screenWidth * 3 + i + 2] = 127;
-			}
-			rayIndex++;
-		}
-		//rayIndex = 0;
-
-		//Fonction : intersectWithScene(Ray r);
-		
-	}*/
 
 	ecrire_image_ppm(nameImgOut, ImgOut, screenWidth, screenHeight);
 }
