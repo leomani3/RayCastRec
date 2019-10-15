@@ -4,6 +4,7 @@
 #include "vector3.h"
 #include "ray.h"
 #include "sphere.h"
+#include "Cube.h"
 #include "image_ppm.h"
 #include <cmath>
 #include "light.h"
@@ -17,6 +18,39 @@ using namespace Windows::Foundation;
 
 int lightDef;
 std::default_random_engine generator;
+
+std::optional<Intersection> intersectBox(Ray r, Cube cube) {
+	Intersection res;
+	Vec3<float> dir = 1.0 / r.direction;
+
+	// lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+	// r.org is origin of ray
+	double t1 = (cube.pMin.x - r.pos.x) * dir.x;
+	double t2 = (cube.pMax.x - r.pos.x) * dir.x;
+	double t3 = (cube.pMin.y - r.pos.y) * dir.y;
+	double t4 = (cube.pMax.y - r.pos.y) * dir.y;
+	double t5 = (cube.pMin.z - r.pos.z) * dir.z;
+	double t6 = (cube.pMax.z - r.pos.z) * dir.z;
+
+	float tmin = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
+	float tmax = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
+
+	// if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+	if (tmax < 0)
+	{
+		return std::nullopt;
+	}
+	// if tmin > tmax, ray doesn't intersect AABB
+	if (tmin > tmax)
+	{
+		return std::nullopt;
+	}
+	res.t = tmin;
+	res.impactWorldPoint = r.pos + (normalise(r.direction) * tmin);
+	res.objectColor = cube.color;
+
+	return res;
+}
 
 //Test s'il le rayon r intersect la sphere
 std::optional<Intersection> intersect(Ray r, Sphere sphere) {
@@ -188,9 +222,9 @@ int main()
 	Sphere haut(Vec3<float>{screenWidth / 2.0f, -16000 + 300, screenWidth / 2.0f + 3000}, 16000 + 50, Vec3<float>{1, 0.1, 1}, false);
 	objects.push_back(haut);
 
-	Sphere sphere1(Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f, 600}, 200, Vec3<float>{1, 0.05, 0.05}, true);
+	Sphere sphere1(Vec3<float>{screenWidth / 2.0f - 200, screenHeight / 2.0f, 400}, 200, Vec3<float>{1, 0.05, 0.05}, true);
 	objects.push_back(sphere1);
-	Sphere sphere2(Vec3<float>{screenWidth / 2.0f + 100, screenHeight / 2.0f, 200}, 50, Vec3<float>{0.05, 1, 0.05}, false);
+	Sphere sphere2(Vec3<float>{screenWidth / 2.0f + 200, screenHeight / 2.0f, 200}, 50, Vec3<float>{0.05, 1, 0.05}, false);
 	objects.push_back(sphere2);
 
 	Light light{ Vec3<float>{screenWidth / 2.0f, screenHeight / 2.0f + 200, -200}, 50, 1, 50, Vec3<float>{90000000, 90000000, 90000000} };
