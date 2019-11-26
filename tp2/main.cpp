@@ -248,7 +248,7 @@ int main()
 			ImgOut[j * screenWidth * 3 + i] = pixelColor.x;
 			ImgOut[j * screenWidth * 3 + i + 1] = pixelColor.y;
 			ImgOut[j * screenWidth * 3 + i + 2] = pixelColor.z;
-			
+
 			rayIndex++;
 		}
 	}
