@@ -8,10 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "pch.h"
-
-using namespace winrt;
-using namespace Windows::Foundation;
 
 #define allocation_tableau(nom, type, nombre) \
 if( (nom = (type*) calloc (nombre, sizeof(type) ) ) == NULL ) \

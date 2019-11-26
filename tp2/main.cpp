@@ -1,6 +1,5 @@
 ﻿#include <stdio.h>
 #include <iostream>
-#include "pch.h"
 #include "vector3.h"
 #include "ray.h"
 #include "sphere.h"
@@ -12,9 +11,6 @@
 #include <random>
 #include <omp.h>
 #include "intersection.h"
-
-using namespace winrt;
-using namespace Windows::Foundation;
 
 int lightDef;
 std::default_random_engine generator;
