@@ -8,10 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "pch.h"
-
-using namespace winrt;
-using namespace Windows::Foundation;
 
 #define allocation_tableau(nom, type, nombre) \
 if( (nom = (type*) calloc (nombre, sizeof(type) ) ) == NULL ) \
@@ -60,7 +56,7 @@ void ecrire_image_ppm(char  nom_image[], OCTET *pt_image, int nb_lignes, int nb_
 }
 /*===========================================================================*/
 
-/*===========================================================================*/		
+/*===========================================================================*/
 void lire_nb_lignes_colonnes_image_ppm(char nom_image[], int *nb_lignes, int *nb_colonnes)
 {
    FILE *f_image;
@@ -123,7 +119,7 @@ void planR(OCTET *pt_image, OCTET *src, int taille_image){
       pt_image[i]=src[3*i];
       }
    }
-   
+
 /*===========================================================================*/
 /*===========================================================================*/
 
@@ -132,7 +128,7 @@ void planV(OCTET *pt_image, OCTET *src, int taille_image){
    for (i=0; i<taille_image; i++){
       pt_image[i]=src[3*i+1];
       }
-   }   
+   }
 
 /*===========================================================================*/
 /*===========================================================================*/
@@ -143,8 +139,8 @@ void planB(OCTET *pt_image, OCTET *src, int taille_image){
       pt_image[i]=src[3*i+2];
       }
    }
-   
-/*===========================================================================*/   
+
+/*===========================================================================*/
 /*===========================================================================*/
 
 void ecrire_image_pgm(char  nom_image[], OCTET *pt_image, int nb_lignes, int nb_colonnes)
